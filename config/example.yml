@@ -1,0 +1,33 @@
+debug: true
+general:
+  boardName: euphio
+  prettyBoardName: "[eUPHIO]"
+  description: The Euphio Question
+  hostname: euphio.org
+  website: https://www.euphio.org
+  foo: ${FOO}
+paths:
+  data: config/data
+  keys: config/keys
+  art: config/art
+loggers:
+  - stdout: true
+    level: info
+    hideTime: false
+    timeFormat: "Jan _2 15:04:05.000" # or "2006-01-02 15:04:05"
+  - file: config/logs/euphio.log
+    level: debug
+    source: true
+  - file: config/logs/error.log
+    level: error
+    source: true
+loginServers:
+  telnet:
+    enabled: true
+    port: 8022
+  ssh:
+    enabled: true
+    port: 8023
+    # To enable SSH, you'll need a key. You can generate one with:
+    #   ssh-keygen -f config/keys/host_key -N '' -t rsa
+    keyFile: config/keys/host_key
