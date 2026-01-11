@@ -60,6 +60,12 @@ func (c *Connection) GetTerminalInfo() nodes.TerminalInfo {
 	}
 }
 
+// IsUTF8 implements the nodes.Connection interface
+func (c *Connection) IsUTF8() bool {
+	// SSH connections are almost always UTF-8 modern terminals
+	return true
+}
+
 func (c *Connection) Close() error {
 	return c.sess.Close()
 }

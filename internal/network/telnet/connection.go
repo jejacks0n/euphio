@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -360,4 +361,13 @@ func (c *Connection) GetTerminalInfo() nodes.TerminalInfo {
 		Width:  c.WindowWidth,
 		Height: c.WindowHeight,
 	}
+}
+
+// IsUTF8 implements the nodes.Connection interface
+func (c *Connection) IsUTF8() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	termType := strings.ToLower(c.TerminalType)
+	return strings.Contains(termType, "xterm") || strings.Contains(termType, "vscode")
 }

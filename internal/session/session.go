@@ -9,7 +9,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
 
+	"euphio/internal/ansi"
 	"euphio/internal/app"
+	"euphio/internal/assets"
 	"euphio/internal/nodes"
 )
 
@@ -18,6 +20,15 @@ func RunSession(rw io.ReadWriter, node *nodes.Node) {
 	username := "guest"
 	if node.User != nil {
 		username = node.User.Username
+	}
+
+	// Display connected art
+	art, err := assets.FS.ReadFile("art/_welcome.ans")
+	if err == nil {
+		ansi.Print(rw, art, node.Conn)
+		io.WriteString(rw, "\r\n")
+	} else {
+		app.Logger.Error("Failed to load connected art", "err", err)
 	}
 
 	io.WriteString(rw, fmt.Sprintf("Welcome to %s\r\n", app.Config.General.BoardName))
@@ -82,9 +93,27 @@ func handleCommand(t *term.Terminal, rw io.ReadWriter, node *nodes.Node, line st
 		app.Nodes.BroadcastExcept(msg, node.ID)
 		io.WriteString(t, "You yelled to everyone.\r\n")
 	case "box":
+		// Define a safe ASCII border for legacy clients (CP437/ANSI)
+		asciiBorder := lipgloss.Border{
+			Top:         "-",
+			Bottom:      "-",
+			Left:        "|",
+			Right:       "|",
+			TopLeft:     "+",
+			TopRight:    "+",
+			BottomLeft:  "+",
+			BottomRight: "+",
+		}
+
+		// Default to ASCII for safety in BBS context, unless we know it's a modern terminal
+		border := asciiBorder
+		if node.Conn.IsUTF8() {
+			border = lipgloss.RoundedBorder()
+		}
+
 		// Example of using Lipgloss to draw a box
 		style := lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
+			BorderStyle(border).
 			BorderForeground(lipgloss.Color("63")).
 			Padding(1, 2).
 			Render("Hello from Lipgloss!")

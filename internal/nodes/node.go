@@ -17,6 +17,7 @@ type Connection interface {
 	Send(msg string) error
 	RemoteAddr() net.Addr
 	GetTerminalInfo() TerminalInfo
+	IsUTF8() bool
 }
 
 type Node struct {
