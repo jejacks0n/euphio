@@ -6,6 +6,7 @@ general:
   hostname: euphio.org
   website: https://www.euphio.org
   maxNodes: 10
+  hotReload: true
   foo: ${FOO}
 paths:
   data: config/data

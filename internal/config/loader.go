@@ -21,6 +21,7 @@ type GeneralConfig struct {
 	Hostname        string `yaml:"hostname"`
 	Website         string `yaml:"website"`
 	MaxNodes        int    `yaml:"maxNodes"`
+	HotReload       bool   `yaml:"hotReload"`
 }
 
 type PathsConfig struct {

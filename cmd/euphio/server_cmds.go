@@ -28,52 +28,58 @@ func startServer(cmd *cobra.Command, args []string) {
 		fmt.Print(string(content))
 	}
 
-	// Setup Watcher
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		app.Logger.Error("Failed to create watcher", "err", err)
-		os.Exit(1)
-	}
-	defer watcher.Close()
-
-	configPath, err := filepath.Abs(cfgFile)
-	if err != nil {
-		app.Logger.Error("Failed to resolve config path", "err", err)
-		os.Exit(1)
-	}
-
-	err = watcher.Add(configPath)
-	if err != nil {
-		app.Logger.Error("Failed to watch config file", "err", err)
-	}
-
 	restartChan := make(chan struct{}, 1)
 	stopChan := make(chan os.Signal, 1)
 	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
 
-	go func() {
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					app.Logger.Info("Config file modified, rebooting app...")
-					select {
-					case restartChan <- struct{}{}:
-					default:
-						// restart pending
-					}
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				app.Logger.Error("Watcher error", "err", err)
-			}
+	if app.Config.General.HotReload {
+		// Setup Watcher
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			app.Logger.Error("Failed to create watcher", "err", err)
+			os.Exit(1)
 		}
-	}()
+		defer watcher.Close()
+
+		configPath, err := filepath.Abs(cfgFile)
+		if err != nil {
+			app.Logger.Error("Failed to resolve config path", "err", err)
+			os.Exit(1)
+		}
+
+		err = watcher.Add(configPath)
+		if err != nil {
+			app.Logger.Error("Failed to watch config file", "err", err)
+		}
+
+		go func() {
+			for {
+				select {
+				case event, ok := <-watcher.Events:
+					if !ok {
+						return
+					}
+					if event.Op&fsnotify.Write == fsnotify.Write {
+						// Check if hot reload is still enabled (in case it was disabled in the new config)
+						if !app.Config.General.HotReload {
+							continue
+						}
+						app.Logger.Info("Config file modified, rebooting app...")
+						select {
+						case restartChan <- struct{}{}:
+						default:
+							// restart pending
+						}
+					}
+				case err, ok := <-watcher.Errors:
+					if !ok {
+						return
+					}
+					app.Logger.Error("Watcher error", "err", err)
+				}
+			}
+		}()
+	}
 
 	for {
 		var wg sync.WaitGroup
