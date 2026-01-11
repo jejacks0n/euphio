@@ -5,16 +5,18 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
-
-	"github.com/fsnotify/fsnotify"
-	"github.com/spf13/cobra"
 
 	"euphio/internal/app"
 	"euphio/internal/assets"
 	"euphio/internal/network"
 	"euphio/internal/network/telnet"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var serverCmd = &cobra.Command{
@@ -31,7 +33,18 @@ var serverCmd = &cobra.Command{
 
 func startServer(cmd *cobra.Command, args []string) {
 	if content, err := assets.FS.ReadFile("boot.asc"); err == nil {
-		fmt.Print(string(content))
+		lines := strings.Split(string(content), "\n")
+		width, _, err := term.GetSize(int(os.Stdout.Fd()))
+
+		for _, line := range lines {
+			if err == nil && width > 0 {
+				runes := []rune(line)
+				if len(runes) > width {
+					line = string(runes[:width])
+				}
+			}
+			fmt.Println(line)
+		}
 	}
 
 	restartChan := make(chan struct{}, 1)
