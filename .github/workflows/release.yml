@@ -51,7 +51,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           # Build with -s -w to shrink binary size
-          go build -ldflags "-s -w" -o ${{ matrix.executable }} .
+          go build -ldflags "-s -w" -o ${{ matrix.executable }} ./cmd/euphio
 
       - name: Compress Binary (Linux/Mac)
         if: matrix.goos != 'windows'
