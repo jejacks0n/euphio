@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"euphio/internal/app"
+	"euphio/internal/assets"
 	"euphio/internal/network"
 	"euphio/internal/network/telnet"
 )
@@ -23,7 +24,7 @@ var serverCmd = &cobra.Command{
 }
 
 func startServer(cmd *cobra.Command, args []string) {
-	if content, err := os.ReadFile("internal/assets/boot.asc"); err == nil {
+	if content, err := assets.FS.ReadFile("boot.asc"); err == nil {
 		fmt.Print(string(content))
 	}
 
