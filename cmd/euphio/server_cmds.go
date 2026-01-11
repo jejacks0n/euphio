@@ -12,6 +12,7 @@ import (
 	"euphio/internal/app"
 	"euphio/internal/assets"
 	"euphio/internal/network"
+	"euphio/internal/network/ssh"
 	"euphio/internal/network/telnet"
 
 	"github.com/fsnotify/fsnotify"
@@ -102,7 +103,7 @@ func startServer(cmd *cobra.Command, args []string) {
 
 	for {
 		var wg sync.WaitGroup
-		var sshServer *network.SSH
+		var sshServer *ssh.Server
 		var telnetServer *telnet.Server
 
 		sshEnabled := app.Config.LoginServers.SSH.Enabled

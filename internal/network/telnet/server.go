@@ -85,5 +85,5 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 	// Hand off to the session manager
 	// RunSession blocks until the user disconnects
-	session.RunSession(telnetConn, node, "guest")
+	session.RunSession(telnetConn, node)
 }

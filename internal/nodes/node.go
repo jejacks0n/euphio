@@ -3,6 +3,8 @@ package nodes
 import (
 	"fmt"
 	"net"
+
+	"euphio/internal/store"
 )
 
 type TerminalInfo struct {
@@ -20,7 +22,7 @@ type Connection interface {
 type Node struct {
 	ID   int
 	Conn Connection
-	// We can add more fields here like User, etc.
+	User *store.User
 }
 
 func (n *Node) String() string {
