@@ -12,8 +12,8 @@
        `── '       \ __.           `── '
 ```
 
-EUPHiO BBS
-==========
+Euphio BBS Software
+===================
 
 ### Preamble
 
