@@ -5,9 +5,16 @@ import (
 	"net"
 )
 
+type TerminalInfo struct {
+	Type   string
+	Width  int
+	Height int
+}
+
 type Connection interface {
 	Send(msg string) error
 	RemoteAddr() net.Addr
+	GetTerminalInfo() TerminalInfo
 }
 
 type Node struct {

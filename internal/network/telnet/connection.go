@@ -7,6 +7,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"euphio/internal/nodes"
 )
 
 // OptionState represents the state of a Telnet option
@@ -346,4 +348,16 @@ func (c *Connection) LogConnectionInfo() {
 		"terminal", ttype,
 		"window", dims,
 	)
+}
+
+// GetTerminalInfo implements the nodes.Connection interface
+func (c *Connection) GetTerminalInfo() nodes.TerminalInfo {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return nodes.TerminalInfo{
+		Type:   c.TerminalType,
+		Width:  c.WindowWidth,
+		Height: c.WindowHeight,
+	}
 }

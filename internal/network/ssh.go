@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/gliderlabs/ssh"
 
 	"euphio/internal/app"
 	"euphio/internal/config"
+	"euphio/internal/nodes"
 	"euphio/internal/session"
 )
 
@@ -19,7 +21,11 @@ type SSH struct {
 
 // sshConnectionWrapper adapts ssh.Session to nodes.Connection interface
 type sshConnectionWrapper struct {
-	sess ssh.Session
+	sess   ssh.Session
+	mu     sync.RWMutex
+	width  int
+	height int
+	term   string
 }
 
 func (w *sshConnectionWrapper) Send(msg string) error {
@@ -29,6 +35,16 @@ func (w *sshConnectionWrapper) Send(msg string) error {
 
 func (w *sshConnectionWrapper) RemoteAddr() net.Addr {
 	return w.sess.RemoteAddr()
+}
+
+func (w *sshConnectionWrapper) GetTerminalInfo() nodes.TerminalInfo {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return nodes.TerminalInfo{
+		Type:   w.term,
+		Width:  w.width,
+		Height: w.height,
+	}
 }
 
 func NewSSH() *SSH {
@@ -86,12 +102,30 @@ func (s *SSH) HandleSession(sess ssh.Session) {
 	defer app.Nodes.Release(node.ID)
 
 	// Assign connection wrapper to node
-	node.Conn = &sshConnectionWrapper{sess: sess}
+	wrapper := &sshConnectionWrapper{sess: sess}
+
+	pty, winCh, isPty := sess.Pty()
+	if isPty {
+		wrapper.term = pty.Term
+		wrapper.width = pty.Window.Width
+		wrapper.height = pty.Window.Height
+
+		go func() {
+			for win := range winCh {
+				wrapper.mu.Lock()
+				wrapper.width = win.Width
+				wrapper.height = win.Height
+				wrapper.mu.Unlock()
+			}
+		}()
+	}
+
+	node.Conn = wrapper
 
 	logger := app.Logger.With("node", node.ID)
 
-	logger.Info("SSH connection established", "user", sess.User())
-	defer logger.Info("SSH connection ended", "user", sess.User())
+	logger.Info("SSH connection established", "user", sess.User(), "term", wrapper.term, "width", wrapper.width, "height", wrapper.height)
+	defer logger.Info("SSH connection closed", "addr", sess.RemoteAddr())
 
 	// Hand off to the session manager
 	session.RunSession(sess, node, "guest")

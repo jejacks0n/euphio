@@ -54,7 +54,10 @@ func handleCommand(w io.Writer, node *nodes.Node, line string) {
 		// Ignore empty enter keys
 		return
 	case "help":
-		io.WriteString(w, "Available commands: help, time, whoami, yell <msg>, exit\r\n")
+		io.WriteString(w, "Available commands: help, info, time, whoami, yell <msg>, exit\r\n")
+	case "info":
+		info := node.Conn.GetTerminalInfo()
+		fmt.Fprintf(w, "Terminal: %s (%dx%d)\r\n", info.Type, info.Width, info.Height)
 	case "whoami":
 		fmt.Fprintf(w, "You are a generic guest user on Node %d.\r\n", node.ID)
 	case "time":
