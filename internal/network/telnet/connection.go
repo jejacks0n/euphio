@@ -3,11 +3,10 @@ package telnet
 import (
 	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
 	"time"
-
-	"euphio/internal/app"
 )
 
 // OptionState represents the state of a Telnet option
@@ -22,6 +21,7 @@ type Connection struct {
 	conn   net.Conn
 	reader *Reader
 	writer *Writer
+	logger *slog.Logger
 
 	// State tracking
 	localOptions  map[byte]OptionState // Options WE have agreed to (WILL)
@@ -39,9 +39,10 @@ type Connection struct {
 	WindowHeight int
 }
 
-func NewConnection(conn net.Conn) *Connection {
+func NewConnection(conn net.Conn, logger *slog.Logger) *Connection {
 	c := &Connection{
 		conn:          conn,
+		logger:        logger,
 		localOptions:  make(map[byte]OptionState),
 		remoteOptions: make(map[byte]OptionState),
 		sentWill:      make(map[byte]bool),
@@ -68,6 +69,12 @@ func (c *Connection) RemoteAddr() net.Addr {
 	return c.conn.RemoteAddr()
 }
 
+// Send implements the nodes.Connection interface
+func (c *Connection) Send(msg string) error {
+	_, err := c.writer.Write([]byte(msg + "\r\n"))
+	return err
+}
+
 // HandleCommand implements the CommandHandler interface
 func (c *Connection) HandleCommand(cmd, option byte) {
 	cmdName := CommandNames[cmd]
@@ -76,7 +83,7 @@ func (c *Connection) HandleCommand(cmd, option byte) {
 		optName = fmt.Sprintf("Unknown(%d)", option)
 	}
 
-	app.Logger.Debug("Telnet command [IN]", "cmd", cmdName, "opt", optName)
+	c.logger.Debug("Telnet command [IN]", "cmd", cmdName, "opt", optName)
 
 	switch cmd {
 	case DO:
@@ -157,22 +164,22 @@ func (c *Connection) HandleCommand(cmd, option byte) {
 		c.writer.Write([]byte("\r\n[Yes]\r\n"))
 	case IP:
 		// Interrupt Process
-		app.Logger.Info("Telnet IP (Interrupt Process) received")
+		c.logger.Info("Telnet IP (Interrupt Process) received")
 		// TODO: Signal application to interrupt
 	case AO:
 		// Abort Output
-		app.Logger.Info("Telnet AO (Abort Output) received")
+		c.logger.Info("Telnet AO (Abort Output) received")
 		// TODO: Signal application to flush output buffers
 	case BRK:
 		// Break
-		app.Logger.Info("Telnet BRK (Break) received")
+		c.logger.Info("Telnet BRK (Break) received")
 	}
 }
 
 // HandleSubNegotiation implements the CommandHandler interface
 func (c *Connection) HandleSubNegotiation(option byte, data []byte) {
 	optName := OptionNames[option]
-	app.Logger.Debug("Telnet sub-negotiation [IN]", "opt", optName, "len", len(data))
+	c.logger.Debug("Telnet sub-negotiation [IN]", "opt", optName, "len", len(data))
 
 	switch option {
 	case NAWS:
@@ -186,7 +193,7 @@ func (c *Connection) HandleSubNegotiation(option byte, data []byte) {
 			c.WindowHeight = height
 			c.mu.Unlock()
 
-			app.Logger.Debug("Telnet window size", "dims", fmt.Sprintf("%dx%d", width, height))
+			c.logger.Debug("Telnet window size", "dims", fmt.Sprintf("%dx%d", width, height))
 		}
 	case TType:
 		// RFC 1091: IAC SB TTYPE IS <terminal-type-string> IAC SE
@@ -197,7 +204,7 @@ func (c *Connection) HandleSubNegotiation(option byte, data []byte) {
 			c.TerminalType = ttype
 			c.mu.Unlock()
 
-			app.Logger.Debug("Telnet terminal type", "type", ttype)
+			c.logger.Debug("Telnet terminal type", "type", ttype)
 		}
 	}
 }
@@ -238,7 +245,7 @@ func (c *Connection) logCommand(direction string, cmd, option byte) {
 	if optName == "" {
 		optName = fmt.Sprintf("Unknown(%d)", option)
 	}
-	app.Logger.Debug(fmt.Sprintf("Telnet command [%s]", direction), "cmd", cmdName, "opt", optName)
+	c.logger.Debug(fmt.Sprintf("Telnet command [%s]", direction), "cmd", cmdName, "opt", optName)
 }
 
 // SendCommand sends a raw Telnet command
@@ -287,7 +294,7 @@ func (c *Connection) SendDont(option byte) error {
 // SendSubNegotiation sends a sub-negotiation sequence
 func (c *Connection) SendSubNegotiation(option byte, data []byte) error {
 	optName := OptionNames[option]
-	app.Logger.Debug("Telnet sub-negotiation [OUT]", "opt", optName, "len", len(data))
+	c.logger.Debug("Telnet sub-negotiation [OUT]", "opt", optName, "len", len(data))
 	return c.writer.WriteSubNegotiation(option, data)
 }
 
@@ -334,7 +341,7 @@ func (c *Connection) LogConnectionInfo() {
 		dims = "UNKNOWN"
 	}
 
-	app.Logger.Info("Telnet connection established",
+	c.logger.Info("Telnet connection established",
 		"addr", c.RemoteAddr(),
 		"terminal", ttype,
 		"window", dims,

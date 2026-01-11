@@ -1,13 +1,14 @@
 package app
 
 import (
-	"euphio/internal/logger"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 
 	"euphio/internal/config"
+	"euphio/internal/logger"
+	"euphio/internal/nodes"
 	"euphio/internal/store"
 )
 
@@ -15,6 +16,7 @@ var (
 	Config *config.Config
 	Store  *store.Store
 	Logger *slog.Logger
+	Nodes  *nodes.Manager
 )
 
 func Boot(configPath string, quiet bool) error {
@@ -30,6 +32,8 @@ func Boot(configPath string, quiet bool) error {
 
 	// If all successful, swap globals and cleanup.
 	Config = newConfig
+
+	Nodes = nodes.NewManager(Config.General.MaxNodes)
 
 	// Setup Logger
 	Logger = logger.Setup(Config.Loggers, quiet)

@@ -53,12 +53,27 @@ func (s *Server) Stop() error {
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
-	// Wrap the connection with our Telnet Connection handler
-	telnetConn := NewConnection(conn)
-	defer telnetConn.Close()
+	node, err := app.Nodes.Acquire()
+	if err != nil {
+		app.Logger.Warn("Connection rejected: system full", "addr", conn.RemoteAddr())
+		conn.Close()
+		return
+	}
+	defer app.Nodes.Release(node.ID)
 
-	app.Logger.Debug("Telnet connection from", "addr", telnetConn.RemoteAddr())
-	defer app.Logger.Info("Telnet connection closed", "addr", telnetConn.RemoteAddr())
+	logger := app.Logger.With("node", node.ID)
+
+	// Wrap the connection with our Telnet Connection handler
+	telnetConn := NewConnection(conn, logger)
+
+	// Assign connection to node for cross-node comms
+	node.Conn = telnetConn
+
+	defer telnetConn.Close()
+	defer logger.Info("Telnet connection closed", "addr", telnetConn.RemoteAddr())
+
+	logger.Debug("Telnet connection from", "addr", telnetConn.RemoteAddr())
+
 	// Initiate Negotiation
 	telnetConn.SendWill(Echo)
 	telnetConn.SendWill(SGA)
@@ -70,5 +85,5 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 	// Hand off to the session manager
 	// RunSession blocks until the user disconnects
-	session.RunSession(telnetConn, "guest")
+	session.RunSession(telnetConn, node, "guest")
 }

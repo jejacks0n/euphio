@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"euphio/internal/app"
 	"euphio/internal/network/telnet"
 )
 
@@ -19,7 +20,7 @@ var _ = Describe("Telnet Protocol", func() {
 
 	BeforeEach(func() {
 		serverConn, clientConn = net.Pipe()
-		connection = telnet.NewConnection(serverConn)
+		connection = telnet.NewConnection(serverConn, app.Logger)
 
 		// Set deadlines to prevent infinite hangs
 		serverConn.SetDeadline(time.Now().Add(2 * time.Second))
@@ -133,11 +134,11 @@ var _ = Describe("Telnet Protocol", func() {
 				}
 			}()
 
-			// 1. Negotiate NAWS
+			// Negotiate NAWS
 			// We simulate that we already agreed to DO NAWS
 			connection.EnableRemoteOption(telnet.NAWS)
 
-			// 2. Send Sub-negotiation: IAC SB NAWS 0 80 0 24 IAC SE
+			// Send Sub-negotiation: IAC SB NAWS 0 80 0 24 IAC SE
 			// 80 = 0x50, 24 = 0x18
 			data := []byte{
 				telnet.IAC, telnet.SB, telnet.NAWS,

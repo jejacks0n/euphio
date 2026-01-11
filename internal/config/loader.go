@@ -20,6 +20,7 @@ type GeneralConfig struct {
 	Description     string `yaml:"description"`
 	Hostname        string `yaml:"hostname"`
 	Website         string `yaml:"website"`
+	MaxNodes        int    `yaml:"maxNodes"`
 }
 
 type PathsConfig struct {

@@ -12,7 +12,7 @@ var _ = Describe("User Model", func() {
 
 	BeforeEach(func() {
 		var err error
-		db, err = store.New(":memory:")
+		db, err = store.New(":memory:", true)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

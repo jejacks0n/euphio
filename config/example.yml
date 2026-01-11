@@ -5,6 +5,7 @@ general:
   description: The Euphio Question
   hostname: euphio.org
   website: https://www.euphio.org
+  maxNodes: 10
   foo: ${FOO}
 paths:
   data: config/data

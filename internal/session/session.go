@@ -8,10 +8,11 @@ import (
 	"golang.org/x/term"
 
 	"euphio/internal/app"
+	"euphio/internal/nodes"
 )
 
 // RunSession starts the REPL for an authenticated user.
-func RunSession(rw io.ReadWriter, username string) {
+func RunSession(rw io.ReadWriter, node *nodes.Node, username string) {
 	io.WriteString(rw, fmt.Sprintf("Welcome to %s\r\n", app.Config.General.BoardName))
 	io.WriteString(rw, "Type 'help' for commands or 'exit' to quit.\r\n")
 	io.WriteString(rw, "------------------------------------------\r\n")
@@ -36,21 +37,36 @@ func RunSession(rw io.ReadWriter, username string) {
 			break
 		}
 
-		handleCommand(t, cmd)
+		handleCommand(t, node, cmd)
 	}
 }
 
-func handleCommand(w io.Writer, cmd string) {
+func handleCommand(w io.Writer, node *nodes.Node, line string) {
+	parts := strings.SplitN(line, " ", 2)
+	cmd := parts[0]
+	args := ""
+	if len(parts) > 1 {
+		args = parts[1]
+	}
+
 	switch cmd {
 	case "":
 		// Ignore empty enter keys
 		return
 	case "help":
-		io.WriteString(w, "Available commands: help, time, whoami, exit\r\n")
+		io.WriteString(w, "Available commands: help, time, whoami, yell <msg>, exit\r\n")
 	case "whoami":
-		io.WriteString(w, "You are a generic guest user.\r\n")
+		fmt.Fprintf(w, "You are a generic guest user on Node %d.\r\n", node.ID)
 	case "time":
 		io.WriteString(w, "It is always time to code.\r\n")
+	case "yell":
+		if args == "" {
+			io.WriteString(w, "Usage: yell <message>\r\n")
+			return
+		}
+		msg := fmt.Sprintf("\r\n[Node %d yells]: %s\r\n", node.ID, args)
+		app.Nodes.BroadcastExcept(msg, node.ID)
+		io.WriteString(w, "You yelled to everyone.\r\n")
 	default:
 		fmt.Fprintf(w, "Unknown command: %s\r\n", cmd)
 	}

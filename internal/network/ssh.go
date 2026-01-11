@@ -3,17 +3,32 @@ package network
 import (
 	"fmt"
 	"io"
+	"net"
 
 	"github.com/gliderlabs/ssh"
-	"golang.org/x/term"
 
 	"euphio/internal/app"
 	"euphio/internal/config"
+	"euphio/internal/session"
 )
 
 type SSH struct {
 	config config.SSHConfig
 	server *ssh.Server
+}
+
+// sshConnectionWrapper adapts ssh.Session to nodes.Connection interface
+type sshConnectionWrapper struct {
+	sess ssh.Session
+}
+
+func (w *sshConnectionWrapper) Send(msg string) error {
+	_, err := io.WriteString(w.sess, msg+"\r\n")
+	return err
+}
+
+func (w *sshConnectionWrapper) RemoteAddr() net.Addr {
+	return w.sess.RemoteAddr()
 }
 
 func NewSSH() *SSH {
@@ -62,50 +77,22 @@ func (s *SSH) PasswordHandler(ctx ssh.Context, password string) bool {
 }
 
 func (s *SSH) HandleSession(sess ssh.Session) {
-	app.Logger.Info("SSH connection established", "user", sess.User())
-	defer app.Logger.Info("SSH connection ended", "user", sess.User())
-
-	// Set the terminal to raw mode to get character-by-character input
-	// Note: In a real SSH session, the client requests a PTY.
-	// We need to ensure we are in a mode that sends raw characters.
-	// The gliderlabs/ssh library handles the PTY allocation if requested.
-
-	// We can just read from the session like a normal reader.
-	// However, to get "raw" behavior similar to our Telnet implementation,
-	// we just read byte by byte.
-
-	term := term.NewTerminal(sess, "> ")
-	_ = term
-
-	// Output welcome message
-	io.WriteString(sess, fmt.Sprintf("\r\nWelcome to %s (SSH)\r\n", app.Config.General.BoardName))
-
-	buf := make([]byte, 1)
-	for {
-		n, err := sess.Read(buf)
-		if err != nil {
-			if err != io.EOF {
-				app.Logger.Debug("SSH read error", "err", err)
-			}
-			return
-		}
-		if n == 0 {
-			continue
-		}
-
-		b := buf[0]
-
-		// Log the received byte for debugging
-		app.Logger.Debug(fmt.Sprintf("SSH Received: byte=%d hex=0x%02X char=%q", b, b, b))
-
-		// Handle Backspace (0x08) or Delete (0x7F)
-		if b == 8 || b == 127 {
-			// Send Backspace, Space, Backspace to erase the character visually
-			sess.Write([]byte{8, 32, 8})
-			continue
-		}
-
-		// Simple echo so we can see what we type
-		sess.Write([]byte{b})
+	node, err := app.Nodes.Acquire()
+	if err != nil {
+		app.Logger.Warn("SSH Connection rejected: system full", "addr", sess.RemoteAddr())
+		sess.Close()
+		return
 	}
+	defer app.Nodes.Release(node.ID)
+
+	// Assign connection wrapper to node
+	node.Conn = &sshConnectionWrapper{sess: sess}
+
+	logger := app.Logger.With("node", node.ID)
+
+	logger.Info("SSH connection established", "user", sess.User())
+	defer logger.Info("SSH connection ended", "user", sess.User())
+
+	// Hand off to the session manager
+	session.RunSession(sess, node, "guest")
 }
