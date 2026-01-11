@@ -62,7 +62,8 @@ func (s *SSH) PasswordHandler(ctx ssh.Context, password string) bool {
 }
 
 func (s *SSH) HandleSession(sess ssh.Session) {
-	app.Logger.Debug("SSH connection", "user", sess.User())
+	app.Logger.Info("SSH connection established", "user", sess.User())
+	defer app.Logger.Info("SSH connection ended", "user", sess.User())
 
 	// Set the terminal to raw mode to get character-by-character input
 	// Note: In a real SSH session, the client requests a PTY.

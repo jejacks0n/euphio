@@ -58,7 +58,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	defer telnetConn.Close()
 
 	app.Logger.Debug("Telnet connection from", "addr", telnetConn.RemoteAddr())
-
+	defer app.Logger.Info("Telnet connection closed", "addr", telnetConn.RemoteAddr())
 	// Initiate Negotiation
 	telnetConn.SendWill(Echo)
 	telnetConn.SendWill(SGA)

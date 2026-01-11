@@ -58,7 +58,7 @@ func startServer(cmd *cobra.Command, args []string) {
 					return
 				}
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					app.Logger.Info("Config file modified", "file", event.Name)
+					app.Logger.Info("Config file modified, rebooting app...")
 					select {
 					case restartChan <- struct{}{}:
 					default:
@@ -131,7 +131,6 @@ func startServer(cmd *cobra.Command, args []string) {
 			return
 
 		case <-restartChan:
-			app.Logger.Info("Restarting servers...")
 			if sshServer != nil {
 				sshServer.Stop()
 			}
