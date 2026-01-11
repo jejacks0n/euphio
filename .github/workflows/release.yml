@@ -1,0 +1,71 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build binaries
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            executable: euphio
+            output_name: euphio-linux-amd64
+          - goos: linux
+            goarch: arm64
+            executable: euphio
+            output_name: euphio-linux-arm64
+          - goos: windows
+            goarch: amd64
+            executable: euphio.exe
+            output_name: euphio-windows-amd64
+          - goos: darwin
+            goarch: amd64
+            executable: euphio
+            output_name: euphio-macos-intel
+          - goos: darwin
+            goarch: arm64
+            executable: euphio
+            output_name: euphio-macos-apple-silicon
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+
+      - name: Build Binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          # Build with -s -w to shrink binary size
+          go build -ldflags "-s -w" -o ${{ matrix.executable }} .
+
+      - name: Compress Binary (Linux/Mac)
+        if: matrix.goos != 'windows'
+        run: |
+          tar -czvf ${{ matrix.output_name }}.tar.gz ${{ matrix.executable }}
+
+      - name: Compress Binary (Windows)
+        if: matrix.goos == 'windows'
+        run: |
+          zip ${{ matrix.output_name }}.zip ${{ matrix.executable }}
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ${{ matrix.output_name }}.tar.gz
+            ${{ matrix.output_name }}.zip
