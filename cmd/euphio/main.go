@@ -11,11 +11,12 @@ import (
 
 var cfgFile string
 
-const (
-	DefaultConfigPath = "config/example.yml"
-)
-
 func main() {
+	configPath := os.Getenv("EUPHIO_CONFIG")
+	if configPath == "" {
+		configPath = "config/example.yml"
+	}
+
 	var rootCmd = &cobra.Command{
 		Use:     "euphio",
 		Short:   "EUPHiO CLI",
@@ -29,7 +30,7 @@ func main() {
 		Run: startServer,
 	}
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", DefaultConfigPath, "config file (default is "+DefaultConfigPath+")")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", configPath, "config file")
 
 	rootCmd.AddCommand(serverCmd)
 	rootCmd.AddCommand(userCmd)
