@@ -20,7 +20,13 @@ import (
 var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Start the server",
-	Run:   startServer,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if err := app.Boot(cfgFile, false); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	},
+	Run: startServer,
 }
 
 func startServer(cmd *cobra.Command, args []string) {

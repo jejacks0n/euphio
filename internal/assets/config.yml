@@ -1,10 +1,10 @@
 debug: true
 general:
-  boardName: euphio
-  prettyBoardName: "[eUPHIO]"
-  description: The Euphio Question
-  hostname: euphio.org
-  website: https://www.euphio.org
+  boardName: "{{ .BoardName }}"
+  prettyBoardName: "{{ .PrettyBoardName }}"
+  description: "{{ .Description }}"
+  hostname: "{{ .Hostname }}"
+  website: "{{ .Website }}"
   maxNodes: 10
   hotReload: true
   foo: ${FOO}

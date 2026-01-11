@@ -4,5 +4,5 @@ import (
 	"embed"
 )
 
-//go:embed *.asc
+//go:embed *.asc *.yml
 var FS embed.FS
