@@ -23,16 +23,15 @@ func PrepareForOutput(data []byte, forceUTF8 bool) []byte {
 
 	var s string
 	if forceUTF8 {
+		// TODO: More work needs to happen here for utf8ans support. Investigate.
 		// If the client needs UTF-8 (like a modern terminal), decode CP437 to UTF-8
-		s = DecodeCP437(cleanData)
+		s = string(cleanData) //DecodeCP437(cleanData)
 	} else {
 		// If the client is legacy (like SyncTerm), send raw bytes
 		s = string(cleanData)
 	}
 
-	// Normalize line endings:
-	// 1. Replace CRLF with LF (to avoid double CRs if we just did LF->CRLF)
-	// 2. Replace LF with CRLF
+	// Normalize line endings
 	s = strings.ReplaceAll(s, "\r\n", "\n")
 	s = strings.ReplaceAll(s, "\n", "\r\n")
 

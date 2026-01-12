@@ -3,7 +3,7 @@ views:
     art: connected
 
   sshConnected:
-    art: testing
+    art: connected
     next:
       view: authWelcome
       delay: 1000
@@ -19,4 +19,9 @@ views:
     art: _welcome
     next: interstitial
     config:
-      pause: true
+      prompt: pause
+
+prompts:
+  pause:
+    art: pause
+    lineFeed: no
