@@ -1,19 +1,22 @@
 views:
   telnetConnected:
-    art: _connected.ans
+    art: connected
 
   sshConnected:
-    art: _connected.ans
+    art: testing
     next:
-      menu: authWelcome
+      view: authWelcome
       delay: 1000
 #    next: authWelcome
 #    next:
-#    - menu: authSshSecondFactor # require 2FA
+#    - view: authSshSecondFactor # require 2FA
 #      acs: AR2
-#    - menu: demo # this drops a user into the demo menu
+#    - view: demo # this drops a user into the demo view
 #      acs: GM[demo]
-#    - menu: authWelcome
+#    - view: authWelcome
 
   authWelcome:
-    art: _welcome.ans
+    art: _welcome
+    next: interstitial
+    config:
+      pause: true

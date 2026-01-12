@@ -86,5 +86,5 @@ func (s *Server) HandleSession(sess ssh.Session) {
 	defer logger.Info("SSH connection closed", "addr", sess.RemoteAddr())
 
 	// Hand off to the session manager
-	session.RunSession(conn, node)
+	session.RunSession(conn, node, s.config.InitialView)
 }

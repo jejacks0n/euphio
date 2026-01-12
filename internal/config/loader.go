@@ -15,6 +15,7 @@ type Config struct {
 	Paths        PathsConfig        `yaml:"paths"`
 	Loggers      []LoggerConfig     `yaml:"loggers"`
 	LoginServers LoginServersConfig `yaml:"loginServers"`
+	Views        map[string]View    `yaml:"views"`
 }
 
 type GeneralConfig struct {
@@ -48,14 +49,51 @@ type LoginServersConfig struct {
 }
 
 type TelnetConfig struct {
-	Enabled bool `yaml:"enabled"`
-	Port    int  `yaml:"port"`
+	Enabled     bool   `yaml:"enabled"`
+	Port        int    `yaml:"port"`
+	InitialView string `yaml:"initialView"`
 }
 
 type SSHConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	Port    int    `yaml:"port"`
-	KeyFile string `yaml:"keyFile"`
+	Enabled     bool   `yaml:"enabled"`
+	Port        int    `yaml:"port"`
+	InitialView string `yaml:"initialView"`
+	KeyFile     string `yaml:"keyFile"`
+}
+
+type View struct {
+	Type    string                 `yaml:"type"`
+	Module  string                 `yaml:"module,omitempty"` // Name of the module to use
+	Art     string                 `yaml:"art,omitempty"`
+	Options map[string]interface{} `yaml:"options,omitempty"`
+	Actions map[string]string      `yaml:"actions,omitempty"`
+	Next    *NextView              `yaml:"next,omitempty"`
+}
+
+type NextView struct {
+	View  string `yaml:"view"`
+	Delay int    `yaml:"delay"` // Delay in milliseconds
+}
+
+// UnmarshalYAML implements custom unmarshaling for NextView to handle both string and object formats
+func (n *NextView) UnmarshalYAML(value *yaml.Node) error {
+	// Case 1: next: "viewName"
+	if value.Kind == yaml.ScalarNode {
+		n.View = value.Value
+		return nil
+	}
+
+	// Case 2: next: { view: "viewName", delay: 1000 }
+	// We need a temporary struct to avoid recursion
+	type plain NextView
+	var tmp plain
+	if err := value.Decode(&tmp); err != nil {
+		return err
+	}
+
+	n.View = tmp.View
+	n.Delay = tmp.Delay
+	return nil
 }
 
 func Load(filename string) (*Config, error) {

@@ -28,7 +28,7 @@ paths:
   art: config/art
 loggers:
   - stdout: true
-    level: info
+    level: debug
     hideTime: false
     timeFormat: "Jan _2 15:04:05.000" # or "2006-01-02 15:04:05"
   - file: config/logs/euphio.log
