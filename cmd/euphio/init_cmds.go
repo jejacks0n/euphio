@@ -88,6 +88,20 @@ func runInit(cmd *cobra.Command, args []string) {
 		fmt.Printf("Created directory: %s\n", path)
 	}
 
+	// Copy views.yml
+	menusContent, err := assets.FS.ReadFile("views.yml")
+	if err != nil {
+		fmt.Printf("Error reading embedded menus template: %v\n", err)
+		// Don't exit, just warn, as this might be optional or added later
+	} else {
+		menusFile := "views.yml"
+		if err := os.WriteFile(menusFile, menusContent, 0644); err != nil {
+			fmt.Printf("Error writing menus file %s: %v\n", menusFile, err)
+		} else {
+			fmt.Printf("Created menus file: %s\n", menusFile)
+		}
+	}
+
 	// Read yml template from assets
 	tmplContent, err := assets.FS.ReadFile("config.yml")
 	if err != nil {

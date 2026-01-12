@@ -1,12 +1,15 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
+	Include      []string           `yaml:"include"`
 	Debug        bool               `yaml:"debug"`
 	General      GeneralConfig      `yaml:"general"`
 	Paths        PathsConfig        `yaml:"paths"`
@@ -56,19 +59,64 @@ type SSHConfig struct {
 }
 
 func Load(filename string) (*Config, error) {
-	data, err := os.ReadFile(filename)
+	// Start with a base config
+	cfg := &Config{}
+
+	// Keep track of processed files to avoid infinite loops
+	processed := make(map[string]bool)
+
+	err := loadRecursive(filename, cfg, processed)
 	if err != nil {
 		return nil, err
+	}
+
+	return cfg, nil
+}
+
+func loadRecursive(filename string, cfg *Config, processed map[string]bool) error {
+	absPath, err := filepath.Abs(filename)
+	if err != nil {
+		return err
+	}
+
+	if processed[absPath] {
+		return nil // Already processed
+	}
+	processed[absPath] = true
+
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		return err
 	}
 
 	// Expand environment variables in the YAML content
 	expandedData := []byte(os.ExpandEnv(string(data)))
 
-	var cfg Config
-	err = yaml.Unmarshal(expandedData, &cfg)
-	if err != nil {
-		return nil, err
+	// Unmarshal into a temporary struct to load includes first
+	var tempCfg struct {
+		Include []string `yaml:"include"`
+	}
+	if err := yaml.Unmarshal(expandedData, &tempCfg); err != nil {
+		return err
 	}
 
-	return &cfg, nil
+	baseDir := filepath.Dir(absPath)
+	for _, includePath := range tempCfg.Include {
+		// Resolve relative paths relative to the current config file
+		fullPath := includePath
+		if !filepath.IsAbs(includePath) {
+			fullPath = filepath.Join(baseDir, includePath)
+		}
+
+		if err := loadRecursive(fullPath, cfg, processed); err != nil {
+			return fmt.Errorf("failed to load included config %s: %w", fullPath, err)
+		}
+	}
+
+	// Now apply the current file's configuration over the accumulated config
+	if err := yaml.Unmarshal(expandedData, cfg); err != nil {
+		return err
+	}
+
+	return nil
 }

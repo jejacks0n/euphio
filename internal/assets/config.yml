@@ -1,4 +1,18 @@
+#           ___.           ._____
+# _____,───┤  .│___.___,───┤   //..┌───┐___,───┐.
+# \\      `│   │  .│      `│   └───┤___:      `│:
+#  │   .   │   │   │   .   │   .  `├───┐   .   ││
+#  │   :   │   │   │   :   │   :   │  `│   :   │.
+#  │   |   │   :   │   │   │   │   │   │   │   │  System Configuration
+#─ │   .___|__ ·   │   :   │   │   │   │   :   ││ ────-────────────────────────
+#  │   │   __/    _|   ·   │   │   |_  │   ·   ││ EUPHiO BBS SOFTWARE v0.1.0000
+#- :___    │───,__\_   ┌───'───|____/  │______//: ───────-/--/-------- - --   -
+#   \__`───'.── . _|___;. ──' ──\__`───'\ ──._tg²
+#       `── '       \ __.           `── '
+#
 debug: true
+include:
+  - views.yml
 general:
   boardName: "{{ .BoardName }}"
   prettyBoardName: "{{ .PrettyBoardName }}"
@@ -27,9 +41,11 @@ loginServers:
   telnet:
     enabled: true
     port: 8022
+    initialView: telnetConnected
   ssh:
     enabled: true
     port: 8023
+    initialView: sshConnected
     # To enable SSH, you'll need a key. You can generate one with:
     #   ssh-keygen -f config/keys/host_key -N '' -t rsa
     keyFile: config/keys/host_key
