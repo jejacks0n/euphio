@@ -52,79 +52,93 @@ func startServer(cmd *cobra.Command, args []string) {
 	stopChan := make(chan os.Signal, 1)
 	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
 
-	if app.Config.General.HotReload {
-		// Setup Watcher
-		watcher, err := fsnotify.NewWatcher()
-		if err != nil {
-			app.Logger.Error("Failed to create watcher", "err", err)
-			os.Exit(1)
-		}
-		defer watcher.Close()
-
-		// Watch all loaded config files
-		for _, file := range app.Config.LoadedFiles {
-			err = watcher.Add(file)
-
-			// Try to make path relative for cleaner logging
-			relPath := file
-			if cwd, err := os.Getwd(); err == nil {
-				if rel, err := filepath.Rel(cwd, file); err == nil {
-					relPath = rel
-				}
-			}
-
-			if err != nil {
-				app.Logger.Error("Failed to watch config file", "file", relPath, "err", err)
-			} else {
-				app.Logger.Debug("Watching config file", "file", relPath)
-			}
-		}
-
-		go func() {
-			for {
-				select {
-				case event, ok := <-watcher.Events:
-					if !ok {
-						return
-					}
-					if event.Op&fsnotify.Write == fsnotify.Write {
-						// Check if hot reload is still enabled (in case it was disabled in the new config)
-						if !app.Config.General.HotReload {
-							continue
-						}
-
-						app.Logger.Info("Config modified, rebooting app...")
-						select {
-						case restartChan <- struct{}{}:
-						default:
-							// restart pending
-						}
-					}
-				case err, ok := <-watcher.Errors:
-					if !ok {
-						return
-					}
-					app.Logger.Error("Watcher error", "err", err)
-				}
-			}
-		}()
-	}
-
 	for {
+		var watcher *fsnotify.Watcher
+		if app.Config.HotReload {
+			// Setup Watcher
+			var err error
+			watcher, err = fsnotify.NewWatcher()
+			if err != nil {
+				app.Logger.Error("Failed to create watcher", "err", err)
+			} else {
+				// Watch all loaded config files
+				for _, file := range app.Config.LoadedFiles {
+					err = watcher.Add(file)
+
+					// Try to make path relative for cleaner logging
+					relPath := file
+					if cwd, err := os.Getwd(); err == nil {
+						if rel, err := filepath.Rel(cwd, file); err == nil {
+							relPath = rel
+						}
+					}
+
+					if err != nil {
+						app.Logger.Error("Failed to watch config file", "file", relPath, "err", err)
+					} else {
+						app.Logger.Debug("Watching config file", "file", relPath)
+					}
+				}
+
+				go func(w *fsnotify.Watcher) {
+					for {
+						select {
+						case event, ok := <-w.Events:
+							if !ok {
+								return
+							}
+							if event.Op&fsnotify.Write == fsnotify.Write {
+								// Check if hot reload is still enabled (in case it was disabled in the new config)
+								if !app.Config.HotReload {
+									continue
+								}
+
+								// Try to make path relative for cleaner logging
+								relPath := event.Name
+								if cwd, err := os.Getwd(); err == nil {
+									if rel, err := filepath.Rel(cwd, event.Name); err == nil {
+										relPath = rel
+									}
+								}
+
+								app.Logger.Info("Config file modified, rebooting app...", "file", relPath)
+								select {
+								case restartChan <- struct{}{}:
+								default:
+									// restart pending
+								}
+							}
+						case err, ok := <-w.Errors:
+							if !ok {
+								return
+							}
+							app.Logger.Error("Watcher error", "err", err)
+						}
+					}
+				}(watcher)
+			}
+		}
+
 		var wg sync.WaitGroup
 		var sshServer *ssh.Server
 		var telnetServer *telnet.Server
 
-		sshEnabled := app.Config.LoginServers.SSH.Enabled
-		telnetEnabled := app.Config.LoginServers.Telnet.Enabled
+		sshEnabled := app.Config.Listeners.SSH.Enabled
+		telnetEnabled := app.Config.Listeners.Telnet.Enabled
 
 		if !telnetEnabled && !sshEnabled {
-			app.Logger.Warn("No login servers enabled.")
+			app.Logger.Warn("No listeners enabled.")
 			// Wait for config change or stop
 			select {
 			case <-stopChan:
+				if watcher != nil {
+					watcher.Close()
+				}
 				return
 			case <-restartChan:
+				if watcher != nil {
+					watcher.Close()
+				}
 				app.Boot(cfgFile, false)
 				continue
 			}
@@ -164,6 +178,9 @@ func startServer(cmd *cobra.Command, args []string) {
 			if telnetServer != nil {
 				telnetServer.Stop()
 			}
+			if watcher != nil {
+				watcher.Close()
+			}
 			return
 
 		case <-restartChan:
@@ -172,6 +189,9 @@ func startServer(cmd *cobra.Command, args []string) {
 			}
 			if telnetServer != nil {
 				telnetServer.Stop()
+			}
+			if watcher != nil {
+				watcher.Close()
 			}
 
 			// Wait for servers to stop

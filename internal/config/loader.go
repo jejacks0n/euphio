@@ -9,14 +9,16 @@ import (
 )
 
 type Config struct {
-	LoadedFiles  []string           `yaml:"-"` // Track all files loaded for this config
-	Include      []string           `yaml:"include"`
-	Debug        bool               `yaml:"debug"`
-	General      GeneralConfig      `yaml:"general"`
-	Paths        PathsConfig        `yaml:"paths"`
-	Loggers      []LoggerConfig     `yaml:"loggers"`
-	LoginServers LoginServersConfig `yaml:"loginServers"`
-	Views        map[string]View    `yaml:"views"`
+	LoadedFiles []string        `yaml:"-"` // Track all files loaded for this config
+	Include     []string        `yaml:"include"`
+	Debug       bool            `yaml:"debug"`
+	MaxNodes    int             `yaml:"maxNodes"`
+	HotReload   bool            `yaml:"hotReload"`
+	General     GeneralConfig   `yaml:"general"`
+	Paths       PathsConfig     `yaml:"paths"`
+	Loggers     []LoggerConfig  `yaml:"loggers"`
+	Listeners   ListenersConfig `yaml:"listeners"`
+	Views       map[string]View `yaml:"views"`
 }
 
 type GeneralConfig struct {
@@ -25,8 +27,6 @@ type GeneralConfig struct {
 	Description     string `yaml:"description"`
 	Hostname        string `yaml:"hostname"`
 	Website         string `yaml:"website"`
-	MaxNodes        int    `yaml:"maxNodes"`
-	HotReload       bool   `yaml:"hotReload"`
 }
 
 type PathsConfig struct {
@@ -44,7 +44,7 @@ type LoggerConfig struct {
 	TimeFormat string `yaml:"timeFormat,omitempty"`
 }
 
-type LoginServersConfig struct {
+type ListenersConfig struct {
 	Telnet TelnetConfig `yaml:"telnet"`
 	SSH    SSHConfig    `yaml:"ssh"`
 }

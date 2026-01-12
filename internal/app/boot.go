@@ -33,7 +33,7 @@ func Boot(configPath string, quiet bool) error {
 	// If all successful, swap globals and cleanup.
 	Config = newConfig
 
-	Nodes = nodes.NewManager(Config.General.MaxNodes)
+	Nodes = nodes.NewManager(Config.MaxNodes)
 
 	// Setup Logger
 	Logger = logger.Setup(Config.Loggers, quiet)

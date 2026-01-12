@@ -17,7 +17,7 @@ type Server struct {
 
 func NewServer() *Server {
 	return &Server{
-		config: app.Config.LoginServers.Telnet,
+		config: app.Config.Listeners.Telnet,
 	}
 }
 

@@ -18,7 +18,7 @@ type Server struct {
 
 func NewServer() *Server {
 	return &Server{
-		config: app.Config.LoginServers.SSH,
+		config: app.Config.Listeners.SSH,
 	}
 }
 
