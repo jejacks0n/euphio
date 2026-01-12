@@ -1,52 +1,39 @@
 package main
 
 import (
+	"euphio/internal/ansi"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"sync"
 	"syscall"
 
 	"euphio/internal/app"
-	"euphio/internal/assets"
 	"euphio/internal/network"
 	"euphio/internal/network/ssh"
 	"euphio/internal/network/telnet"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 var serverCmd = &cobra.Command{
-	Use:   "server",
-	Short: "Start the server",
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		if err := app.Boot(cfgFile, false); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	},
-	Run: startServer,
+	Use:              "server",
+	Short:            "Start the server",
+	PersistentPreRun: bootAppForServer,
+	Run:              startServer,
+}
+
+func bootAppForServer(cmd *cobra.Command, args []string) {
+	if err := app.Boot(cfgFile, false); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func startServer(cmd *cobra.Command, args []string) {
-	if content, err := assets.FS.ReadFile("boot.asc"); err == nil {
-		lines := strings.Split(string(content), "\n")
-		width, _, err := term.GetSize(int(os.Stdout.Fd()))
-
-		for _, line := range lines {
-			if err == nil && width > 0 {
-				runes := []rune(line)
-				if len(runes) > width {
-					line = string(runes[:width])
-				}
-			}
-			fmt.Println(line)
-		}
-	}
+	ansi.RenderArt(os.Stdout, "boot", true)
 
 	restartChan := make(chan struct{}, 1)
 	stopChan := make(chan os.Signal, 1)

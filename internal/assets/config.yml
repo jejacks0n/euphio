@@ -13,7 +13,7 @@
 maxNodes: 10
 hotReload: true
 include:
-  - views.yml
+  - config/views.yml
 general:
   boardName: "{{ .BoardName }}"
   prettyBoardName: "{{ .PrettyBoardName }}"
@@ -23,7 +23,7 @@ general:
 paths:
   data: config/data
   keys: config/keys
-  art: config/art
+  ansi: config/ansi
 loggers:
   - stdout: true
     level: debug

@@ -77,7 +77,7 @@ func runInit(cmd *cobra.Command, args []string) {
 	fmt.Printf("Initializing '%s' (config: %s)...\n", data.BoardName, configFile)
 
 	// Create directory structure
-	dirs := []string{"/data", "/keys", "/logs", "/art"}
+	dirs := []string{"/data", "/keys", "/logs", "/ansi"}
 
 	for _, dir := range dirs {
 		path := safeName + dir
@@ -89,12 +89,12 @@ func runInit(cmd *cobra.Command, args []string) {
 	}
 
 	// Copy views.yml
-	menusContent, err := assets.FS.ReadFile("views.yml")
+	menusContent, err := assets.FS.ReadFile("config/views.yml")
 	if err != nil {
 		fmt.Printf("Error reading embedded menus template: %v\n", err)
 		// Don't exit, just warn, as this might be optional or added later
 	} else {
-		menusFile := "views.yml"
+		menusFile := safeName + "/views.yml"
 		if err := os.WriteFile(menusFile, menusContent, 0644); err != nil {
 			fmt.Printf("Error writing menus file %s: %v\n", menusFile, err)
 		} else {

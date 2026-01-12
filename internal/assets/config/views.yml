@@ -1,9 +1,9 @@
 views:
   telnetConnected:
-    art: connected
+    ansi: connected
 
   sshConnected:
-    art: connected
+    ansi: connected
     next:
       view: authWelcome
       delay: 1000
@@ -16,12 +16,12 @@ views:
 #    - view: authWelcome
 
   authWelcome:
-    art: _welcome
+    ansi: _welcome
     next: interstitial
     config:
       prompt: pause
 
 prompts:
   pause:
-    art: pause
+    ansi: pause
     lineFeed: no

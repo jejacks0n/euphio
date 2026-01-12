@@ -66,6 +66,13 @@ func (c *Connection) IsUTF8() bool {
 	return true
 }
 
+// GetWidth implements the nodes.Connection interface
+func (c *Connection) GetWidth() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.width
+}
+
 func (c *Connection) Close() error {
 	return c.sess.Close()
 }

@@ -3,13 +3,10 @@ package views
 import (
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"time"
 
 	"euphio/internal/ansi"
 	"euphio/internal/app"
-	"euphio/internal/assets"
 	"euphio/internal/config"
 	"euphio/internal/modules"
 	"euphio/internal/nodes"
@@ -73,9 +70,9 @@ func (m *Manager) RenderCurrent(w io.Writer, node *nodes.Node) error {
 	// For now, we only support a simple "art" view type implicitly
 	// In the future, we can use viewConfig.Type to instantiate different View implementations.
 
-	if viewConfig.Art != "" {
-		// Load and display art
-		if err := renderArt(w, node, viewConfig.Art); err != nil {
+	if viewConfig.Ansi != "" {
+		// Load and display art using the new ansi.RenderArt utility
+		if err := ansi.RenderArt(w, viewConfig.Ansi, node.Conn.IsUTF8()); err != nil {
 			return err
 		}
 	}
@@ -98,60 +95,6 @@ func (m *Manager) RenderCurrent(w io.Writer, node *nodes.Node) error {
 	}
 
 	return nil
-}
-
-func renderArt(w io.Writer, node *nodes.Node, artName string) error {
-	// Determine possible file extensions
-	extensions := []string{}
-	if node.Conn.IsUTF8() {
-		extensions = append(extensions, ".utf8ans")
-	}
-	extensions = append(extensions, ".ans", ".asc")
-
-	// Helper to try loading a file
-	tryLoad := func(basePath string, name string, exts []string) ([]byte, error) {
-		for _, ext := range exts {
-			fullPath := filepath.Join(basePath, name+ext)
-
-			// Try loading from disk first (if basePath is configured)
-			if basePath == app.Config.Paths.Art {
-				data, err := os.ReadFile(fullPath)
-				if err == nil {
-					app.Logger.Debug("Loaded art from disk", "path", fullPath)
-					return data, nil
-				}
-			} else {
-				// Try loading from embedded assets
-				// basePath here is likely "art"
-				data, err := assets.FS.ReadFile(fullPath)
-				if err == nil {
-					app.Logger.Debug("Loaded art from assets", "path", fullPath)
-					return data, nil
-				}
-			}
-		}
-		return nil, fmt.Errorf("not found")
-	}
-
-	// Try configured art path (overrides)
-	if app.Config.Paths.Art != "" {
-		data, err := tryLoad(app.Config.Paths.Art, artName, extensions)
-		if err == nil {
-			_, err = ansi.Print(w, data, node.Conn)
-			io.WriteString(w, "\r\n")
-			return err
-		}
-	}
-
-	// Try embedded assets
-	data, err := tryLoad("art", artName, extensions)
-	if err == nil {
-		_, err = ansi.Print(w, data, node.Conn)
-		io.WriteString(w, "\r\n")
-		return err
-	}
-
-	return fmt.Errorf("art not found: %s (checked extensions: %v)", artName, extensions)
 }
 
 // HandleInput processes input for the current view.

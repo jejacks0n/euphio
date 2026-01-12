@@ -50,8 +50,10 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
-          # Build with -s -w to shrink binary size
-          go build -ldflags "-s -w" -o ${{ matrix.executable }} ./cmd/euphio
+          # Get the tag name (version)
+          VERSION=${GITHUB_REF#refs/tags/}
+          # Build with -s -w to shrink binary size and inject version
+          go build -ldflags "-s -w -X euphio/internal/app.Version=$VERSION" -o ${{ matrix.executable }} ./cmd/euphio
 
       - name: Compress Binary (Linux/Mac)
         if: matrix.goos != 'windows'

@@ -371,3 +371,10 @@ func (c *Connection) IsUTF8() bool {
 	termType := strings.ToLower(c.TerminalType)
 	return strings.Contains(termType, "xterm") || strings.Contains(termType, "vscode")
 }
+
+// GetWidth implements the nodes.Connection interface
+func (c *Connection) GetWidth() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.WindowWidth
+}

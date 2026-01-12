@@ -32,7 +32,7 @@ type GeneralConfig struct {
 type PathsConfig struct {
 	Data string `yaml:"data"`
 	Keys string `yaml:"keys"`
-	Art  string `yaml:"art"`
+	Ansi string `yaml:"ansi"`
 }
 
 type LoggerConfig struct {
@@ -65,7 +65,7 @@ type SSHConfig struct {
 type View struct {
 	Type    string                 `yaml:"type"`
 	Module  string                 `yaml:"module,omitempty"` // Name of the module to use
-	Art     string                 `yaml:"art,omitempty"`
+	Ansi    string                 `yaml:"ansi,omitempty"`
 	Options map[string]interface{} `yaml:"options,omitempty"`
 	Actions map[string]string      `yaml:"actions,omitempty"`
 	Next    *NextView              `yaml:"next,omitempty"`

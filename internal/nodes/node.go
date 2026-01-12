@@ -18,6 +18,7 @@ type Connection interface {
 	RemoteAddr() net.Addr
 	GetTerminalInfo() TerminalInfo
 	IsUTF8() bool
+	GetWidth() int
 }
 
 type Node struct {

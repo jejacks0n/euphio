@@ -13,10 +13,11 @@ import (
 )
 
 var (
-	Config *config.Config
-	Store  *store.Store
-	Logger *slog.Logger
-	Nodes  *nodes.Manager
+	Version = "v0.1.000" // Default version, can be overwritten by build flags
+	Config  *config.Config
+	Store   *store.Store
+	Logger  *slog.Logger
+	Nodes   *nodes.Manager
 )
 
 func Boot(configPath string, quiet bool) error {

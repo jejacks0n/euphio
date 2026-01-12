@@ -20,12 +20,9 @@ func main() {
 	var rootCmd = &cobra.Command{
 		Use:     "euphio",
 		Short:   "Euphio BBS",
-		Version: "0.1.000",
+		Version: app.Version,
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := app.Boot(cfgFile, false); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
-			}
+			bootAppForServer(cmd, args)
 			startServer(cmd, args)
 		},
 	}
