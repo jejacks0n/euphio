@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -28,6 +29,9 @@ func Boot(configPath string, quiet bool) error {
 	// Load the configuration
 	newConfig, err := config.Load(configPath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("configuration file not found: %s\n\nPlease ensure you have a valid configuration file.\nYou can specify one using the -c flag or EUPHIO_CONFIG environment variable.\nExample: euphio -c config/myconfig.yml\n\nYou can get a basic configuration setup by initializing the current path.\nExample: euphio init", configPath)
+		}
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
