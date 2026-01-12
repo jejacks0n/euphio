@@ -9,6 +9,7 @@ import (
 )
 
 type Config struct {
+	LoadedFiles  []string           `yaml:"-"` // Track all files loaded for this config
 	Include      []string           `yaml:"include"`
 	Debug        bool               `yaml:"debug"`
 	General      GeneralConfig      `yaml:"general"`
@@ -98,7 +99,9 @@ func (n *NextView) UnmarshalYAML(value *yaml.Node) error {
 
 func Load(filename string) (*Config, error) {
 	// Start with a base config
-	cfg := &Config{}
+	cfg := &Config{
+		LoadedFiles: []string{},
+	}
 
 	// Keep track of processed files to avoid infinite loops
 	processed := make(map[string]bool)
@@ -121,6 +124,7 @@ func loadRecursive(filename string, cfg *Config, processed map[string]bool) erro
 		return nil // Already processed
 	}
 	processed[absPath] = true
+	cfg.LoadedFiles = append(cfg.LoadedFiles, absPath)
 
 	data, err := os.ReadFile(absPath)
 	if err != nil {

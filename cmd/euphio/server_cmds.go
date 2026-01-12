@@ -61,15 +61,23 @@ func startServer(cmd *cobra.Command, args []string) {
 		}
 		defer watcher.Close()
 
-		configPath, err := filepath.Abs(cfgFile)
-		if err != nil {
-			app.Logger.Error("Failed to resolve config path", "err", err)
-			os.Exit(1)
-		}
+		// Watch all loaded config files
+		for _, file := range app.Config.LoadedFiles {
+			err = watcher.Add(file)
 
-		err = watcher.Add(configPath)
-		if err != nil {
-			app.Logger.Error("Failed to watch config file", "err", err)
+			// Try to make path relative for cleaner logging
+			relPath := file
+			if cwd, err := os.Getwd(); err == nil {
+				if rel, err := filepath.Rel(cwd, file); err == nil {
+					relPath = rel
+				}
+			}
+
+			if err != nil {
+				app.Logger.Error("Failed to watch config file", "file", relPath, "err", err)
+			} else {
+				app.Logger.Debug("Watching config file", "file", relPath)
+			}
 		}
 
 		go func() {
@@ -84,7 +92,8 @@ func startServer(cmd *cobra.Command, args []string) {
 						if !app.Config.General.HotReload {
 							continue
 						}
-						app.Logger.Info("Config file modified, rebooting app...")
+
+						app.Logger.Info("Config modified, rebooting app...")
 						select {
 						case restartChan <- struct{}{}:
 						default:

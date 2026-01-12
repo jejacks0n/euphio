@@ -57,7 +57,7 @@ func Boot(configPath string, quiet bool) error {
 	Store = newStore
 
 	if !quiet {
-		Logger.Info("Successfully loaded configuration", "file", configPath)
+		Logger.Info("Loaded configuration", "file", configPath)
 	}
 
 	return nil
