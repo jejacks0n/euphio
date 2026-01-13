@@ -87,6 +87,13 @@ func (m *DebugModule) HandleCommand(w io.Writer, node *nodes.Node, cmd string, a
 			io.WriteString(w, "Error: IO does not support reading for TUI\r\n")
 		}
 		return true, nil
+	case "exit", "quit":
+		// We can handle exit here if we want the debug module to be able to close the session,
+		// but usually session handles it. However, since we removed the session loop's explicit exit check,
+		// we might want to re-add it or handle it via views.
+		// For now, let's just return false so it falls through or does nothing,
+		// as the user wants to focus on view navigation.
+		return false, nil
 	}
 	return false, nil
 }

@@ -1,12 +1,10 @@
 package session
 
 import (
-	"fmt"
 	"io"
-	"strings"
+	"time"
 
-	"golang.org/x/term"
-
+	"euphio/internal/ansi"
 	"euphio/internal/app"
 	"euphio/internal/modules"
 	"euphio/internal/nodes"
@@ -18,7 +16,8 @@ type Session struct {
 	rw   io.ReadWriter
 	node *nodes.Node
 	vm   *views.Manager
-	term *term.Terminal
+	// Event channel for session-wide events
+	events chan interface{}
 }
 
 // RunSession starts the REPL for an authenticated user.
@@ -27,68 +26,77 @@ func RunSession(rw io.ReadWriter, node *nodes.Node, initialView string) {
 	registry := modules.NewRegistry()
 	registry.Register(&modules.DebugModule{})
 
+	events := make(chan interface{}, 10)
+
 	s := &Session{
-		rw:   rw,
-		node: node,
-		vm:   views.NewManager(app.Config.Views, registry, initialView),
+		rw:     rw,
+		node:   node,
+		vm:     views.NewManager(app.Config.Views, registry, initialView, events),
+		events: events,
 	}
 	s.Run()
 }
 
 func (s *Session) Run() {
-	username := "guest"
-	if s.node.User != nil {
-		username = s.node.User.Username
+	// Hide the cursor
+	s.rw.Write([]byte(ansi.HideCursor))
+
+	// Render initial view
+	if err := s.vm.RenderCurrent(s.rw, s.node); err != nil {
+		app.Logger.Error("Failed to render initial view", "view", s.vm.Current(), "err", err)
 	}
 
-	// If we have an initial view, try to render it
-	if s.vm.Current() != "" {
-		if err := s.vm.RenderCurrent(s.rw, s.node); err != nil {
-			app.Logger.Error("Failed to render initial view", "view", s.vm.Current(), "err", err)
-		}
-	}
+	// Start Input Listener
+	go s.readInput()
 
-	// We treat the connection as a terminal.
-	// term.NewTerminal handles the prompt, line editing, and echo.
-	s.term = term.NewTerminal(s.rw, fmt.Sprintf("[%s] > ", username))
+	// Main Event Loop
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
 
 	for {
-		line, err := s.term.ReadLine()
+		select {
+		case event := <-s.events:
+			// Handle session events (e.g., view changes, messages)
+			s.handleEvent(event)
+		case <-ticker.C:
+			// Periodic updates if needed
+		}
+	}
+}
+
+func (s *Session) readInput() {
+	buf := make([]byte, 1024)
+	for {
+		n, err := s.rw.Read(buf)
 		if err != nil {
-			if err != io.EOF {
-				app.Logger.Error("Error reading line", "err", err)
+			// TODO: Handle disconnect
+			return
+		}
+		if n > 0 {
+			s.events <- views.InputEvent{Input: string(buf[:n])}
+		}
+	}
+}
+
+func (s *Session) handleEvent(event interface{}) {
+	switch e := event.(type) {
+	case string:
+		app.Logger.Debug("Session event", "msg", e)
+	case views.ChangeViewEvent:
+		app.Logger.Debug("Handling ChangeViewEvent", "view", e.ViewID)
+		s.vm.Push(e.ViewID)
+		if err := s.vm.RenderCurrent(s.rw, s.node); err != nil {
+			app.Logger.Error("Failed to render view", "view", e.ViewID, "err", err)
+		}
+	case views.InputEvent:
+		handled, err := s.vm.HandleInput(s.rw, e.Input, s.node)
+		if err != nil {
+			app.Logger.Error("Error handling input", "err", err)
+		}
+		if handled {
+			if err := s.vm.RenderCurrent(s.rw, s.node); err != nil {
+				app.Logger.Error("Failed to render view after input", "err", err)
 			}
-			break
 		}
-
-		cmd := strings.TrimSpace(line)
-
-		if cmd == "exit" || cmd == "quit" {
-			s.term.Write([]byte("Goodbye!\r\n"))
-			break
-		}
-
-		// Check if the view manager wants to handle the input first
-		// This allows views to override standard commands or handle navigation
-		if s.vm.Current() != "" {
-			handled, err := s.vm.HandleInput(s.rw, cmd, s.node)
-			if err == nil && handled {
-				// If input was handled (no error), re-render the current view (which might have changed)
-				s.vm.RenderCurrent(s.rw, s.node)
-				continue
-			}
-			// If not handled, fall through to standard commands
-		}
-
-		// Fallback to debug module if no view handled it (for now, until we have a proper command shell)
-		// Or we can just remove this if we want views to be the only way to interact.
-		// For now, let's keep the debug module accessible globally for testing if needed,
-		// or just rely on views.
-
-		// Let's rely on views. If you want debug commands, configure a view to use the 'debug' module.
-		// But wait, the user said "move it out of the session, where it's mostly just code for debugging now".
-		// So we should remove handleCommand entirely.
-
-		fmt.Fprintf(s.term, "Unknown command: %s\r\n", cmd)
 	}
 }

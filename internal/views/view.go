@@ -10,6 +10,7 @@ import (
 	"euphio/internal/config"
 	"euphio/internal/modules"
 	"euphio/internal/nodes"
+	"euphio/internal/prompts"
 )
 
 // View represents a screen or state in the BBS.
@@ -20,18 +21,21 @@ type View interface {
 
 // Manager handles the navigation stack and current view.
 type Manager struct {
-	config   map[string]config.View
-	registry *modules.Registry
-	stack    []string
-	current  string
+	config        map[string]config.View
+	registry      *modules.Registry
+	stack         []string
+	current       string
+	events        chan interface{} // Channel to send events back to the session
+	currentPrompt prompts.Prompt
 }
 
-func NewManager(viewConfig map[string]config.View, registry *modules.Registry, initialView string) *Manager {
+func NewManager(viewConfig map[string]config.View, registry *modules.Registry, initialView string, events chan interface{}) *Manager {
 	return &Manager{
 		config:   viewConfig,
 		registry: registry,
 		stack:    []string{},
 		current:  initialView,
+		events:   events,
 	}
 }
 
@@ -45,6 +49,7 @@ func (m *Manager) Push(viewID string) {
 		m.stack = append(m.stack, m.current)
 	}
 	m.current = viewID
+	m.currentPrompt = nil // Reset prompt on view change
 }
 
 func (m *Manager) Pop() string {
@@ -56,41 +61,68 @@ func (m *Manager) Pop() string {
 	m.stack = m.stack[:len(m.stack)-1]
 	app.Logger.Debug("View Manager: Pop", "view", prev, "from", m.current)
 	m.current = prev
+	m.currentPrompt = nil // Reset prompt on view change
 	return prev
 }
 
 // RenderCurrent renders the current view to the writer.
 func (m *Manager) RenderCurrent(w io.Writer, node *nodes.Node) error {
-	app.Logger.Debug("View Manager: RenderCurrent", "view", m.current)
+	app.Logger.Debug("View Manager: RenderCurrent", "view", m.current, "stack", m.stack)
 	viewConfig, ok := m.config[m.current]
 	if !ok {
 		return fmt.Errorf("view not found: %s", m.current)
 	}
 
+	// Handle screen clearing
+	if viewConfig.ClearScreen {
+		w.Write([]byte(ansi.ClearScreen))
+	}
+
+	// Handle cursor visibility
+	if viewConfig.HideCursor {
+		w.Write([]byte(ansi.HideCursor))
+	} else {
+		w.Write([]byte(ansi.ShowCursor))
+	}
+
 	// For now, we only support a simple "art" view type implicitly
 	// In the future, we can use viewConfig.Type to instantiate different View implementations.
 
+	isUTF8 := false
+	if node.Conn != nil {
+		isUTF8 = node.Conn.IsUTF8()
+	}
+
 	if viewConfig.Ansi != "" {
 		// Load and display art using the new ansi.RenderArt utility
-		if err := ansi.RenderArt(w, viewConfig.Ansi, node.Conn.IsUTF8()); err != nil {
+		if err := ansi.RenderArt(w, viewConfig.Ansi, isUTF8); err != nil {
 			return err
 		}
 	}
 
+	// Handle Prompt
+	if viewConfig.Prompt != "" {
+		if promptCfg, ok := app.Config.Prompts[viewConfig.Prompt]; ok {
+			// Instantiate the prompt
+			// For now, we only have BasicPrompt. Later we can use promptCfg.Type
+			m.currentPrompt = prompts.NewBasic(promptCfg)
+			if err := m.currentPrompt.Render(w, node); err != nil {
+				return err
+			}
+		}
+	}
+
 	// Handle automatic transition ("next")
-	if viewConfig.Next != nil {
+	// Only trigger if Delay is greater than 0.
+	// If Delay is 0 (default), it implies "wait for key press" which is handled in HandleInput.
+	if viewConfig.Next != nil && viewConfig.Next.Delay > 0 {
 		app.Logger.Debug("View Manager: Auto-next configured", "next", viewConfig.Next.View, "delay", viewConfig.Next.Delay)
 		go func(nextView string, delay int) {
-			if delay > 0 {
-				time.Sleep(time.Duration(delay) * time.Millisecond)
+			time.Sleep(time.Duration(delay) * time.Millisecond)
+			// Send event to session loop instead of modifying state directly
+			if m.events != nil {
+				m.events <- ChangeViewEvent{ViewID: nextView}
 			}
-			// We need a way to signal the session loop to update the view.
-			// Since we don't have a channel or event bus yet, this is tricky.
-			// For now, we can't easily push the next view from a goroutine without synchronization.
-			// This part requires the Session loop to be event-driven or channel-based.
-			// Let's leave a TODO or implement a basic channel if possible.
-
-			// Ideally, the Session loop should select on input AND a "view change" channel.
 		}(viewConfig.Next.View, viewConfig.Next.Delay)
 	}
 
@@ -104,6 +136,26 @@ func (m *Manager) HandleInput(w io.Writer, input string, node *nodes.Node) (bool
 	viewConfig, ok := m.config[m.current]
 	if !ok {
 		return false, fmt.Errorf("view not found: %s", m.current)
+	}
+
+	// 0. Check if there is an active prompt
+	if m.currentPrompt != nil {
+		handled, done, err := m.currentPrompt.HandleInput(input, node)
+		if err != nil {
+			return handled, err
+		}
+		if handled {
+			if done {
+				// Prompt is done, move to next view if configured
+				if viewConfig.Next != nil {
+					app.Logger.Debug("View Manager: Prompt done, moving next", "next", viewConfig.Next.View)
+					m.Push(viewConfig.Next.View)
+					return true, nil
+				}
+				// If no next view, we just stay here
+			}
+			return true, nil
+		}
 	}
 
 	// 1. Check if the view uses a module
@@ -139,7 +191,8 @@ func (m *Manager) HandleInput(w io.Writer, input string, node *nodes.Node) (bool
 	}
 
 	// 3. Check for "Press any key" behavior (Next without delay)
-	if viewConfig.Next != nil && viewConfig.Next.Delay == 0 {
+	// Only if NO prompt is active (prompts handle their own input)
+	if m.currentPrompt == nil && viewConfig.Next != nil && viewConfig.Next.Delay == 0 {
 		// If there's a next view configured without a delay (or explicit 0),
 		// treat any input as a trigger to move next.
 		app.Logger.Debug("View Manager: Next triggered by input", "next", viewConfig.Next.View)
@@ -149,4 +202,13 @@ func (m *Manager) HandleInput(w io.Writer, input string, node *nodes.Node) (bool
 
 	app.Logger.Debug("View Manager: No action matched")
 	return false, nil
+}
+
+// Events
+type ChangeViewEvent struct {
+	ViewID string
+}
+
+type InputEvent struct {
+	Input string
 }

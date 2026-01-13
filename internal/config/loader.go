@@ -9,16 +9,17 @@ import (
 )
 
 type Config struct {
-	LoadedFiles []string        `yaml:"-"` // Track all files loaded for this config
-	Include     []string        `yaml:"include"`
-	Debug       bool            `yaml:"debug"`
-	MaxNodes    int             `yaml:"maxNodes"`
-	HotReload   bool            `yaml:"hotReload"`
-	General     GeneralConfig   `yaml:"general"`
-	Paths       PathsConfig     `yaml:"paths"`
-	Loggers     []LoggerConfig  `yaml:"loggers"`
-	Listeners   ListenersConfig `yaml:"listeners"`
-	Views       map[string]View `yaml:"views"`
+	LoadedFiles []string          `yaml:"-"` // Track all files loaded for this config
+	Include     []string          `yaml:"include"`
+	Debug       bool              `yaml:"debug"`
+	MaxNodes    int               `yaml:"maxNodes"`
+	HotReload   bool              `yaml:"hotReload"`
+	General     GeneralConfig     `yaml:"general"`
+	Paths       PathsConfig       `yaml:"paths"`
+	Loggers     []LoggerConfig    `yaml:"loggers"`
+	Listeners   ListenersConfig   `yaml:"listeners"`
+	Views       map[string]View   `yaml:"views"`
+	Prompts     map[string]Prompt `yaml:"prompts"`
 }
 
 type GeneralConfig struct {
@@ -63,12 +64,20 @@ type SSHConfig struct {
 }
 
 type View struct {
-	Type    string                 `yaml:"type"`
-	Module  string                 `yaml:"module,omitempty"` // Name of the module to use
-	Ansi    string                 `yaml:"ansi,omitempty"`
-	Options map[string]interface{} `yaml:"options,omitempty"`
-	Actions map[string]string      `yaml:"actions,omitempty"`
-	Next    *NextView              `yaml:"next,omitempty"`
+	Type        string                 `yaml:"type"`
+	Module      string                 `yaml:"module,omitempty"` // Name of the module to use
+	Ansi        string                 `yaml:"ansi,omitempty"`
+	HideCursor  bool                   `yaml:"hideCursor,omitempty"`
+	ClearScreen bool                   `yaml:"clearScreen,omitempty"`
+	Options     map[string]interface{} `yaml:"options,omitempty"`
+	Actions     map[string]string      `yaml:"actions,omitempty"`
+	Next        *NextView              `yaml:"next,omitempty"`
+	Prompt      string                 `yaml:"prompt,omitempty"`
+}
+
+type Prompt struct {
+	Ansi     string `yaml:"ansi"`
+	LineFeed bool   `yaml:"lineFeed"`
 }
 
 type NextView struct {

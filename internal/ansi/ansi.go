@@ -11,7 +11,10 @@ import (
 )
 
 const (
-	ResetSeq = "\x1b[0m"
+	ResetSeq    = "\x1b[0m"
+	HideCursor  = "\x1b[?25l"
+	ShowCursor  = "\x1b[?25h"
+	ClearScreen = "\x1b[2J\x1b[H"
 )
 
 // RenderArt loads an ANSI/art file (with overrides), processes it (SAUCE, CP437, Templates), and writes it to the

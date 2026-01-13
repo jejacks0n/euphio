@@ -80,8 +80,10 @@ func (s *Server) handleConnection(conn net.Conn) {
 	telnetConn.SendDo(NAWS)
 	telnetConn.SendDo(TType)
 
-	// Start a background logger to report connection details once negotiation settles
-	telnetConn.StartNegotiationLogger(2 * time.Second)
+	// Wait for negotiation to complete (or timeout)
+	// This ensures we have terminal type and window size before starting the session
+	telnetConn.WaitForNegotiation(2 * time.Second)
+	telnetConn.LogConnectionInfo()
 
 	// Hand off to the session manager
 	// RunSession blocks until the user disconnects

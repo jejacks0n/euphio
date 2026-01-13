@@ -40,16 +40,21 @@ type Connection struct {
 	TerminalType string
 	WindowWidth  int
 	WindowHeight int
+
+	// Negotiation completion channel
+	negotiationDone chan struct{}
+	negotiationOnce sync.Once
 }
 
 func NewConnection(conn net.Conn, logger *slog.Logger) *Connection {
 	c := &Connection{
-		conn:          conn,
-		logger:        logger,
-		localOptions:  make(map[byte]OptionState),
-		remoteOptions: make(map[byte]OptionState),
-		sentWill:      make(map[byte]bool),
-		sentDo:        make(map[byte]bool),
+		conn:            conn,
+		logger:          logger,
+		localOptions:    make(map[byte]OptionState),
+		remoteOptions:   make(map[byte]OptionState),
+		sentWill:        make(map[byte]bool),
+		sentDo:          make(map[byte]bool),
+		negotiationDone: make(chan struct{}),
 	}
 	c.reader = NewReader(conn, c)
 	c.writer = NewWriter(conn)
@@ -197,6 +202,7 @@ func (c *Connection) HandleSubNegotiation(option byte, data []byte) {
 			c.mu.Unlock()
 
 			c.logger.Debug("Telnet window size", "dims", fmt.Sprintf("%dx%d", width, height))
+			c.checkNegotiationComplete()
 		}
 	case TType:
 		// RFC 1091: IAC SB TTYPE IS <terminal-type-string> IAC SE
@@ -208,7 +214,32 @@ func (c *Connection) HandleSubNegotiation(option byte, data []byte) {
 			c.mu.Unlock()
 
 			c.logger.Debug("Telnet terminal type", "type", ttype)
+			c.checkNegotiationComplete()
 		}
+	}
+}
+
+func (c *Connection) checkNegotiationComplete() {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	// We consider negotiation "complete enough" when we have both TType and Window Size
+	// OR if we've waited long enough (handled by timeout elsewhere)
+	if c.TerminalType != "" && c.WindowWidth > 0 {
+		c.negotiationOnce.Do(func() {
+			close(c.negotiationDone)
+		})
+	}
+}
+
+// WaitForNegotiation blocks until negotiation is complete or timeout occurs
+func (c *Connection) WaitForNegotiation(timeout time.Duration) {
+	select {
+	case <-c.negotiationDone:
+		// Negotiation completed
+	case <-time.After(timeout):
+		// Timeout
+		c.logger.Warn("Telnet negotiation timed out (proceeding anyway)")
 	}
 }
 
@@ -305,26 +336,7 @@ func (c *Connection) SendSubNegotiation(option byte, data []byte) error {
 // (or timeout) and then logs the connection details.
 func (c *Connection) StartNegotiationLogger(timeout time.Duration) {
 	go func() {
-		deadline := time.Now().Add(timeout)
-		ticker := time.NewTicker(100 * time.Millisecond)
-		defer ticker.Stop()
-
-		for {
-			if time.Now().After(deadline) {
-				break
-			}
-
-			c.mu.RLock()
-			done := c.TerminalType != "" && c.WindowWidth > 0
-			c.mu.RUnlock()
-
-			if done {
-				break
-			}
-
-			<-ticker.C
-		}
-
+		c.WaitForNegotiation(timeout)
 		c.LogConnectionInfo()
 	}()
 }

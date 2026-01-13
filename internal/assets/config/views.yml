@@ -1,9 +1,16 @@
 views:
   telnetConnected:
     ansi: connected
+    hideCursor: true
+    clearScreen: true
+    next:
+      view: authWelcome
+      delay: 1000
 
   sshConnected:
     ansi: connected
+    hideCursor: true
+    clearScreen: true
     next:
       view: authWelcome
       delay: 1000
@@ -17,11 +24,18 @@ views:
 
   authWelcome:
     ansi: _welcome
+    hideCursor: true
+    clearScreen: true
     next: interstitial
-    config:
-      prompt: pause
+    prompt: pause
+
+  interstitial:
+    ansi: testing
+    clearScreen: true
+    prompt: pause
+
 
 prompts:
   pause:
-    ansi: pause
+    ansi: _pause
     lineFeed: no
